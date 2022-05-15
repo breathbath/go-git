@@ -3,6 +3,7 @@ package git
 import (
 	"errors"
 	"fmt"
+	"io"
 	"regexp"
 	"strings"
 	"time"
@@ -453,6 +454,8 @@ func (o *AddOptions) Validate(r *Repository) error {
 	return nil
 }
 
+type Signer func(r io.Reader) (string, error)
+
 // CommitOptions describes how a commit operation should be performed.
 type CommitOptions struct {
 	// All automatically stage files that have been modified and deleted, but
@@ -471,6 +474,8 @@ type CommitOptions struct {
 	// commit will not be signed. The private key must be present and already
 	// decrypted.
 	SignKey *openpgp.Entity
+	// CustomerSigner callback function to implement custom signing algorithm
+	CustomSigner Signer
 }
 
 // Validate validates the fields and sets the default values.
@@ -554,6 +559,8 @@ type CreateTagOptions struct {
 	// SignKey denotes a key to sign the tag with. A nil value here means the tag
 	// will not be signed. The private key must be present and already decrypted.
 	SignKey *openpgp.Entity
+	// CustomerSigner callback function to implement custom signing algorithm
+	CustomSigner Signer
 }
 
 // Validate validates the fields and sets the default values.

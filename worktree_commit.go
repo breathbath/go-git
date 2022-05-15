@@ -101,8 +101,8 @@ func (w *Worktree) buildCommitObject(msg string, opts *CommitOptions, tree plumb
 		ParentHashes: opts.Parents,
 	}
 
-	if opts.SignKey != nil {
-		sig, err := w.buildCommitSignature(commit, opts.SignKey)
+	if opts.SignKey != nil || opts.CustomSigner != nil {
+		sig, err := w.buildCommitSignature(commit, opts)
 		if err != nil {
 			return plumbing.ZeroHash, err
 		}
@@ -116,7 +116,7 @@ func (w *Worktree) buildCommitObject(msg string, opts *CommitOptions, tree plumb
 	return w.r.Storer.SetEncodedObject(obj)
 }
 
-func (w *Worktree) buildCommitSignature(commit *object.Commit, signKey *openpgp.Entity) (string, error) {
+func (w *Worktree) buildCommitSignature(commit *object.Commit, opts *CommitOptions) (string, error) {
 	encoded := &plumbing.MemoryObject{}
 	if err := commit.Encode(encoded); err != nil {
 		return "", err
@@ -125,11 +125,20 @@ func (w *Worktree) buildCommitSignature(commit *object.Commit, signKey *openpgp.
 	if err != nil {
 		return "", err
 	}
-	var b bytes.Buffer
-	if err := openpgp.ArmoredDetachSign(&b, signKey, r, nil); err != nil {
-		return "", err
+
+	if opts.SignKey != nil {
+		var b bytes.Buffer
+		if err := openpgp.ArmoredDetachSign(&b, opts.SignKey, r, nil); err != nil {
+			return "", err
+		}
+		return b.String(), nil
 	}
-	return b.String(), nil
+
+	if opts.CustomSigner != nil {
+		return opts.CustomSigner(r)
+	}
+
+	return "", nil
 }
 
 // buildTreeHelper converts a given index.Index file into multiple git objects

@@ -709,8 +709,8 @@ func (r *Repository) createTagObject(name string, hash plumbing.Hash, opts *Crea
 		Target:     hash,
 	}
 
-	if opts.SignKey != nil {
-		sig, err := r.buildTagSignature(tag, opts.SignKey)
+	if opts.SignKey != nil || opts.CustomSigner != nil {
+		sig, err := r.buildTagSignature(tag, opts)
 		if err != nil {
 			return plumbing.ZeroHash, err
 		}
@@ -726,7 +726,7 @@ func (r *Repository) createTagObject(name string, hash plumbing.Hash, opts *Crea
 	return r.Storer.SetEncodedObject(obj)
 }
 
-func (r *Repository) buildTagSignature(tag *object.Tag, signKey *openpgp.Entity) (string, error) {
+func (r *Repository) buildTagSignature(tag *object.Tag, opts *CreateTagOptions) (string, error) {
 	encoded := &plumbing.MemoryObject{}
 	if err := tag.Encode(encoded); err != nil {
 		return "", err
@@ -737,12 +737,19 @@ func (r *Repository) buildTagSignature(tag *object.Tag, signKey *openpgp.Entity)
 		return "", err
 	}
 
-	var b bytes.Buffer
-	if err := openpgp.ArmoredDetachSign(&b, signKey, rdr, nil); err != nil {
-		return "", err
+	if opts.SignKey != nil {
+		var b bytes.Buffer
+		if err := openpgp.ArmoredDetachSign(&b, opts.SignKey, rdr, nil); err != nil {
+			return "", err
+		}
+		return b.String(), nil
 	}
 
-	return b.String(), nil
+	if opts.CustomSigner != nil {
+		return opts.CustomSigner(rdr)
+	}
+
+	return "", nil
 }
 
 // Tag returns a tag from the repository.
